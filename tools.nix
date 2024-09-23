@@ -277,6 +277,7 @@ rec {
                 if isNull parsed.urlFragment
                 then parsed.rev
                 else parsed.urlFragment;
+              allRefs = true;
             } // (if (parsed ? branch || parsed ? tag)
             then { ref = parsed.branch or "refs/tags/${parsed.tag}"; }
             else { allRefs = true; })
@@ -401,14 +402,15 @@ rec {
               hashKey = toHashKey package;
               sha256 = extendedHashes.${hashKey} or extendedHashes.${toPackageId package};
               parsed = parseGitSource source;
-              src = pkgs.fetchgit {
-                name = "${name}-${version}";
-                inherit sha256;
+              srcname = "${name}-${version}";
+              src = builtins.fetchGit {
+                #inherit sha256;
                 inherit (parsed) url;
                 rev =
                   if isNull parsed.urlFragment
                   then parsed.rev
                   else parsed.urlFragment;
+                allRefs = true;
               };
 
               allCargoTomls = lib.filter
@@ -431,7 +433,7 @@ rec {
 
               pathToExtract = lib.removeSuffix "Cargo.toml" packageCargoToml;
             in
-            pkgs.runCommand (lib.removeSuffix ".tar.gz" src.name) { }
+            pkgs.runCommand (lib.removeSuffix ".tar.gz" srcname) { }
               ''
                 mkdir -p $out
                 cp -apR ${pathToExtract}/* $out
