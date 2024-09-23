@@ -393,9 +393,9 @@ rec {
               packageId = toPackageId package;
               sha256 = extendedHashes.${packageId};
               parsed = parseGitSource source;
-              src = pkgs.fetchgit {
-                name = "${name}-${version}";
-                inherit sha256;
+              srcname = "${name}-${version}";
+              src = builtins.fetchGit {
+                #inherit sha256;
                 inherit (parsed) url;
                 rev =
                   if isNull parsed.urlFragment
@@ -425,7 +425,7 @@ rec {
                 else
                   ".";
             in
-            pkgs.runCommand (lib.removeSuffix ".tar.gz" src.name) { }
+            pkgs.runCommand (lib.removeSuffix ".tar.gz" srcname) { }
               ''
                 mkdir -p $out
                 cp -apR ${src}/${pathToExtract}/* $out
