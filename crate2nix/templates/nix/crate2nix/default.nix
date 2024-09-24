@@ -97,77 +97,63 @@ rec {
     assert builtins.typeOf testInputs == "list";
     assert builtins.typeOf testPreRun == "string";
     assert builtins.typeOf testPostRun == "string";
+    # override the `crate` so that it will build and execute tests instead of
+    # building the actual lib and bin targets We just have to pass `--test`
+    # to rustc and it will do the right thing.  We execute the tests and copy
+    # their log and the test executables to $out for later inspection.
     let
-      # override the `crate` so that it will build and execute tests instead of
-      # building the actual lib and bin targets We just have to pass `--test`
-      # to rustc and it will do the right thing.  We execute the tests and copy
-      # their log and the test executables to $out for later inspection.
-      test =
-        let
-          drv = testCrate.override
-            (
-              _: {
-                buildTests = true;
-              }
-            );
-          # If the user hasn't set any pre/post commands, we don't want to
-          # insert empty lines. This means that any existing users of crate2nix
-          # don't get a spurious rebuild unless they set these explicitly.
-          testCommand = pkgs.lib.concatStringsSep "\n"
-            (pkgs.lib.filter (s: s != "") [
-              testPreRun
-              "$f $testCrateFlags 2>&1 | tee -a $out"
-              testPostRun
-            ]);
-        in
-        pkgs.stdenvNoCC.mkDerivation {
-          name = "run-tests-${testCrate.name}";
-
-          inherit (crate) src;
-
-          inherit testCrateFlags;
-
-          buildInputs = testInputs;
-
-          buildPhase = ''
-            set -e
-            export RUST_BACKTRACE=1
-
-            # build outputs
-            testRoot=target/debug
-            mkdir -p $testRoot
-
-            # executables of the crate
-            # we copy to prevent std::env::current_exe() to resolve to a store location
-            for i in ${crate}/bin/*; do
-              cp "$i" "$testRoot"
-            done
-            chmod +w -R .
-
-            # test harness executables are suffixed with a hash, like cargo does
-            # this allows to prevent name collision with the main
-            # executables of the crate
-            hash=$(basename $out)
-            for file in ${drv}/tests/*; do
-              f=$testRoot/$(basename $file)-$hash
-              cp $file $f
-              ${testCommand}
-            done
-          '';
-        };
+      drv = testCrate.override
+        (
+          _: {
+            buildTests = true;
+          }
+        );
+      # If the user hasn't set any pre/post commands, we don't want to
+      # insert empty lines. This means that any existing users of crate2nix
+      # don't get a spurious rebuild unless they set these explicitly.
+      testCommand = pkgs.lib.concatStringsSep "\n"
+        (pkgs.lib.filter (s: s != "") [
+          testPreRun
+          "mkdir $out"
+          "$f $testCrateFlags 2>&1 | tee -a $out/out.log"
+          testPostRun
+        ]);
     in
-    pkgs.runCommand "${crate.name}-linked"
-      {
-        inherit (crate) outputs crateName;
-        passthru = (crate.passthru or { }) // {
-          inherit test;
-        };
-      }
-      (lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
-        echo tested by ${test}
-      '' + ''
-        ${lib.concatMapStringsSep "\n" (output: "ln -s ${crate.${output}} ${"$"}${output}") crate.outputs}
-      '');
+    pkgs.stdenvNoCC.mkDerivation {
+      name = "run-tests-${testCrate.name}";
+
+      inherit (crate) src;
+
+      inherit testCrateFlags;
+
+      buildInputs = testInputs;
+
+      buildPhase = ''
+        set -e
+        export RUST_BACKTRACE=1
+
+        # build outputs
+        testRoot=target/debug
+        mkdir -p $testRoot
+
+        # executables of the crate
+        # we copy to prevent std::env::current_exe() to resolve to a store location
+        for i in ${crate}/bin/*; do
+          cp "$i" "$testRoot"
+        done
+        chmod +w -R .
+
+        # test harness executables are suffixed with a hash, like cargo does
+        # this allows to prevent name collision with the main
+        # executables of the crate
+        hash=$(basename $out)
+        for file in ${drv}/tests/*; do
+          f=$testRoot/$(basename $file)-$hash
+          cp $file $f
+          ${testCommand}
+        done
+      '';
+    };
 
   /* A restricted overridable version of builtRustCratesWithFeatures. */
   buildRustCrateWithFeatures =
