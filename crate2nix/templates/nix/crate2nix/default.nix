@@ -160,6 +160,7 @@ rec {
         testCommand = pkgs.lib.concatStringsSep "\n" (
           pkgs.lib.filter (s: s != "") [
             testPreRun
+            "mkdir -p $out"
             "$f $testCrateFlags 2>&1 | tee -a $out/out.log"
             testPostRun
           ]
