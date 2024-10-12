@@ -42,6 +42,7 @@ rec {
             then builtins.fetchGit {
                 url = source.url;
                 rev = source.rev;
+                allRefs = true;
             }
             else if type == "CratesIo"
             then downloadFromCratesIo source

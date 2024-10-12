@@ -269,6 +269,7 @@ rec {
                 if isNull parsed.urlFragment
                 then parsed.rev
                 else parsed.urlFragment;
+              allRefs = true;
             } // (if (parsed ? branch || parsed ? tag)
             then { ref = parsed.branch or "refs/tags/${parsed.tag}"; }
             else { allRefs = true; })
@@ -401,6 +402,7 @@ rec {
                   if isNull parsed.urlFragment
                   then parsed.rev
                   else parsed.urlFragment;
+                allRefs = true;
               };
 
               rootCargo = builtins.fromTOML (builtins.readFile "${src}/Cargo.toml");
