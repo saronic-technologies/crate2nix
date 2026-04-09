@@ -596,8 +596,12 @@ rec {
               cache:
               { packageId, features }:
               let
-                cacheFeatures = cache.${packageId} or [ ];
-                combinedFeatures = sortedUnique (cacheFeatures ++ features);
+                # Use resolvedDefaultFeatures as a floor so that traversal-order
+                # differences between workspace members cannot produce a feature set
+                # lower than what cargo resolved for this crate across the workspace.
+                resolvedFloor = (crateConfigs.${packageId} or { }).resolvedDefaultFeatures or [ ];
+                cacheFeatures = cache.${packageId} or resolvedFloor;
+                combinedFeatures = sortedUnique (cacheFeatures ++ features ++ resolvedFloor);
               in
               if cache ? ${packageId} && cache.${packageId} == combinedFeatures then
                 cache
